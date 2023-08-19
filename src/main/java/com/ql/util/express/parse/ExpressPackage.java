@@ -1,11 +1,15 @@
 package com.ql.util.express.parse;
 
+import java.io.IOException;
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.ql.util.express.ExpressUtil;
+import com.ql.util.express.config.QLExpressRunStrategy;
 
 public class ExpressPackage {
     private List<String> packages;
@@ -62,7 +66,7 @@ public class ExpressPackage {
         Class<?> result = null;
         if (isRootCall) {
             // 如果本身具有包名，这直接定位
-            if (name.contains(".")) {
+            if (name.contains(".") && checkClassExist(name)) {
                 try {
                     result = ExpressUtil.loadClass(name);
                 } catch (Throwable ignore) {
@@ -102,6 +106,9 @@ public class ExpressPackage {
                 } else {
                     tmp = aPackage + "." + name;
                 }
+                if (!checkClassExist(tmp)){
+                    continue;
+                }
                 try {
                     result = ExpressUtil.loadClass(tmp);
                 } catch (ClassNotFoundException ex) {
@@ -113,6 +120,25 @@ public class ExpressPackage {
             }
         }
         return null;
+    }
+
+
+    /**
+     * 提前检查类是否存在，避免直接使用Class.forName
+     *
+     * @param className 类名
+     * @return boolean
+     */
+    public boolean checkClassExist(String className) {
+        ClassLoader classLoader = QLExpressRunStrategy.getCustomClassLoader();
+        className = className.replace(".", "/") + ".class";
+        classLoader = classLoader == null ? Thread.currentThread().getContextClassLoader() : classLoader;
+        try {
+            Enumeration<URL> resources = classLoader.getResources(className);
+            return resources.hasMoreElements();
+        } catch (IOException e) {
+            return false;
+        }
     }
 }
 
